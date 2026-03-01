@@ -164,21 +164,21 @@ export default function Sidebar() {
                             <div className="nav-section-content">
                                 <div className="nav-section-content-inner">
                                     {group.items.map((item) => {
-                                        const isDocuments = item.name.includes('Documents');
+                                        const isActive = pathname === item.path || (pathname.startsWith(item.path) && item.path !== '/dashboard' && item.path !== '/coming-soon');
                                         return (
                                             <Link
                                                 key={item.name}
                                                 href={item.path}
-                                                className={`nav-link ${pathname === item.path || (pathname.startsWith(item.path) && item.path !== '/dashboard' && item.path !== '/coming-soon') ? 'active' : ''}`}
+                                                className={`nav-link ${isActive ? 'active' : ''}`}
                                                 title={item.name}
-                                                style={isDocuments ? {
+                                                style={isActive ? {
                                                     color: '#00f3ff',
                                                     textShadow: '0 0 10px rgba(0, 243, 255, 0.8)',
                                                     border: '1px solid rgba(0, 243, 255, 0.3)',
                                                     background: 'rgba(0, 243, 255, 0.05)'
                                                 } : {}}
                                             >
-                                                <span className="nav-icon" style={isDocuments ? { filter: 'drop-shadow(0 0 8px #00f3ff)' } : {}}>{item.icon}</span>
+                                                <span className="nav-icon" style={isActive ? { filter: 'drop-shadow(0 0 8px #00f3ff)' } : {}}>{item.icon}</span>
                                                 <span>{item.name}</span>
                                             </Link>
                                         )

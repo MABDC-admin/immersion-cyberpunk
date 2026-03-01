@@ -37,6 +37,18 @@ export default function EmployeesClient({ employees: initialEmployees, departmen
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
     const router = useRouter();
 
+    const fetchEmployees = async () => {
+        try {
+            const res = await fetch('/api/employees');
+            if (res.ok) {
+                const data = await res.json();
+                setEmployees(data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch employees:', error);
+        }
+    };
+
     const filtered = employees.filter((e) =>
         `${e.firstName} ${e.lastName} ${e.email} ${e.department} ${e.empNo}`
             .toLowerCase()
