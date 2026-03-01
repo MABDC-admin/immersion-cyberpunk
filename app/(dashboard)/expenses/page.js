@@ -58,9 +58,9 @@ export default async function ExpensesPage() {
     }
 
     return (
-        <ExpensesClient 
-            initialMyExpenses={myExpenses} 
-            initialAllExpenses={allExpenses}
+        <ExpensesClient
+            initialMyExpenses={JSON.parse(JSON.stringify(myExpenses))}
+            initialAllExpenses={JSON.parse(JSON.stringify(allExpenses))}
             isHR={isHR}
             userEmployeeId={userEmployeeId}
         />
