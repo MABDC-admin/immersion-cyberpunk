@@ -8,20 +8,20 @@ datasource db {
 }
 
 model User {
-  id           Int        @id @default(autoincrement())
-  email        String     @unique
-  passwordHash String     @map("password_hash")
-  displayName  String     @map("display_name")
-  employeeId   Int?       @map("employee_id")
-  isActive     Int        @default(1) @map("is_active")
-  createdAt    DateTime   @default(now()) @map("created_at")
-  userRoles    UserRole[]
-  employee     Employee?  @relation(fields: [employeeId], references: [id])
-  createdTickets Ticket[]   @relation("TicketCreator")
-  assignedTickets Ticket[]  @relation("TicketAssignee")
-  auditLogs      AuditLog[]
+  id               Int                @id @default(autoincrement())
+  email            String             @unique
+  passwordHash     String             @map("password_hash")
+  displayName      String             @map("display_name")
+  employeeId       Int?               @map("employee_id")
+  isActive         Int                @default(1) @map("is_active")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  auditLogs        AuditLog[]
   issuedDiscipline DisciplineRecord[] @relation("DisciplineIssuer")
-  approvalRequests ApprovalRequest[] @relation("ApprovalRequester")
+  assignedTickets  Ticket[]           @relation("TicketAssignee")
+  createdTickets   Ticket[]           @relation("TicketCreator")
+  userRoles        UserRole[]
+  employee         Employee?          @relation(fields: [employeeId], references: [id])
+  approvalRequests ApprovalRequest[]   @relation("ApprovalRequester")
 
   @@map("users")
 }
@@ -30,8 +30,8 @@ model Role {
   id              Int              @id @default(autoincrement())
   name            String           @unique
   description     String?
-  userRoles       UserRole[]
   rolePermissions RolePermission[]
+  userRoles       UserRole[]
 
   @@map("roles")
 }
@@ -49,8 +49,8 @@ model UserRole {
   id     Int  @id @default(autoincrement())
   userId Int  @map("user_id")
   roleId Int  @map("role_id")
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
   role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, roleId])
   @@map("user_roles")
@@ -60,132 +60,108 @@ model RolePermission {
   id           Int        @id @default(autoincrement())
   roleId       Int        @map("role_id")
   permissionId Int        @map("permission_id")
-  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, permissionId])
   @@map("role_permissions")
 }
 
 model Employee {
-  id           Int            @id @default(autoincrement())
-  empNo        String?        @map("emp_no")
-  firstName    String?        @map("first_name")
-  lastName     String?        @map("last_name")
-  email        String?
-  phone        String?
-  departmentId Int?           @map("department_id")
-  positionId   Int?           @map("position_id")
-  managerId    Int?           @map("manager_id")
-  joinDate     String?        @map("join_date")
-  status       String?        @default("Active")
-  avatarUrl    String?        @map("avatar_url")
-  basicSalary  Float?         @map("basic_salary")
-  bankName     String?        @map("bank_name")
-  iban         String?
-  routingCode  String?        @map("routing_code")
-  
-  // PHASE 10: UAE COMPREHENSIVE DATA MODEL
-  // 1. Personal Information
-  nationality       String?
-  gender            String?
-  dateOfBirth       String?        @map("date_of_birth")
-  maritalStatus     String?        @map("marital_status")
-  passportNumber    String?        @map("passport_number")
-  passportExpiry    String?        @map("passport_expiry")
-  emiratesId        String?        @map("emirates_id")
-  emiratesIdExpiry  String?        @map("emirates_id_expiry")
-  visaType          String?        @map("visa_type")
-  visaExpiry        String?        @map("visa_expiry")
-  unifiedNumber     String?        @map("unified_number")
-
-  // 2. Contact Information
-  // mobileNumber maps to existing `phone`
-  personalEmail     String?        @map("personal_email")
-  // companyEmail maps to existing `email`
-  residentialAddress String?       @map("residential_address")
-  homeCountryAddress String?       @map("home_country_address")
-  emergencyContactName String?     @map("emergency_contact_name")
-  emergencyContactRelation String? @map("emergency_contact_relation")
-  emergencyContactNumber String?   @map("emergency_contact_number")
-
-  // 3. Employment Details
-  // jobTitle handled by Position/Department relations
-  gradeLevel        String?        @map("grade_level")
-  employmentType    String?        @map("employment_type") // Full-time, Part-time, Contract
-  workLocation      String?        @map("work_location")
-  // joiningDate maps to existing `joinDate`
-  probationPeriod   String?        @map("probation_period")
-  contractType      String?        @map("contract_type") // Limited, Unlimited
-  workPermitNumber  String?        @map("work_permit_number")
-  sponsorshipType   String?        @map("sponsorship_type") // Company Sponsored, Family Sponsored
-
-  // 4. Compensation Details
-  // Basic Salary, Allowances, Total Salary handled by Benefits Model Phase 3
-  paymentMethod     String?        @default("Bank Transfer") @map("payment_method") // WPS, Bank Transfer
-  wpsFileNumber     String?        @map("wps_file_number")
-  // Bank Name, IBAN, Routing handled by existing Phase 3 fields
-  swiftCode         String?        @map("swift_code")
-
-  // 5. Leave & Attendance Information
-  annualLeaveBalance Float?        @default(30.0) @map("annual_leave_balance")
-  sickLeaveBalance   Float?        @default(15.0) @map("sick_leave_balance")
-  leaveAccrualRate   Float?        @default(2.5) @map("leave_accrual_rate")
-  // Working Hours & Shift Type handled by Phase 3 Shift Relation
-  biometricId        String?       @map("biometric_id") // Biometric / Timeclock Machine ID
-  
-  // 6. Documents & Attachments
-  // Handled by Phase 2 'Document' File Upload Relation
-  
-  // 7. Government & Compliance Details
-  mohreContractNumber String?      @map("mohre_contract_number")
-  establishmentCard   String?      @map("establishment_card")
-  medicalInsurancePolicy String?   @map("medical_insurance_policy")
-
-  // RELATIONAL JOINS
-  users        User[]
-  department   Department?    @relation(fields: [departmentId], references: [id])
-  positionRel  Position?      @relation(fields: [positionId], references: [id])
-  leaveRequests LeaveRequest[]
-  attendance   Attendance[]
-  payrollItems PayrollItem[]
-  documents    Document[]
-  requests     EmployeeRequest[]
-  shifts       EmployeeShift[]
-  benefits     EmployeeBenefit[]
-  reviewsGiven      PerformanceReview[] @relation("Reviewer")
-  reviewsReceived   PerformanceReview[] @relation("Reviewee")
-  onboardingTasks   EmployeeOnboarding[]
-  trainings         EmployeeTraining[]
-  disciplineRecords DisciplineRecord[] @relation("EmployeeDiscipline")
-  offboardingRecord OffboardingRecord? @relation("EmployeeOffboarding")
+  id                       Int                  @id @default(autoincrement())
+  empNo                    String?              @map("emp_no")
+  firstName                String?              @map("first_name")
+  lastName                 String?              @map("last_name")
+  email                    String?
+  phone                    String?
+  departmentId             Int?                 @map("department_id")
+  positionId               Int?                 @map("position_id")
+  managerId                Int?                 @map("manager_id")
+  joinDate                 String?              @map("join_date")
+  status                   String?              @default("Active")
+  avatarUrl                String?              @map("avatar_url")
+  basicSalary              Float?               @map("basic_salary")
+  bankName                 String?              @map("bank_name")
+  iban                     String?
+  routingCode              String?              @map("routing_code")
+  nationality              String?
+  gender                   String?
+  dateOfBirth              String?              @map("date_of_birth")
+  maritalStatus            String?              @map("marital_status")
+  passportNumber           String?              @map("passport_number")
+  passportExpiry           String?              @map("passport_expiry")
+  emiratesId               String?              @map("emirates_id")
+  emiratesIdExpiry         String?              @map("emirates_id_expiry")
+  visaType                 String?              @map("visa_type")
+  visaExpiry               String?              @map("visa_expiry")
+  unifiedNumber            String?              @map("unified_number")
+  personalEmail            String?              @map("personal_email")
+  residentialAddress       String?              @map("residential_address")
+  homeCountryAddress       String?              @map("home_country_address")
+  emergencyContactName     String?              @map("emergency_contact_name")
+  emergencyContactRelation String?              @map("emergency_contact_relation")
+  emergencyContactNumber   String?              @map("emergency_contact_number")
+  gradeLevel               String?              @map("grade_level")
+  employmentType           String?              @map("employment_type")
+  workLocation             String?              @map("work_location")
+  probationPeriod          String?              @map("probation_period")
+  contractType             String?              @map("contract_type")
+  workPermitNumber         String?              @map("work_permit_number")
+  sponsorshipType          String?              @map("sponsorship_type")
+  paymentMethod            String?              @default("Bank Transfer") @map("payment_method")
+  wpsFileNumber            String?              @map("wps_file_number")
+  swiftCode                String?              @map("swift_code")
+  annualLeaveBalance       Float?               @default(30.0) @map("annual_leave_balance")
+  sickLeaveBalance         Float?               @default(15.0) @map("sick_leave_balance")
+  leaveAccrualRate         Float?               @default(2.5) @map("leave_accrual_rate")
+  biometricId              String?              @map("biometric_id")
+  mohreContractNumber      String?              @map("mohre_contract_number")
+  establishmentCard        String?              @map("establishment_card")
+  medicalInsurancePolicy   String?              @map("medical_insurance_policy")
+  attendance               Attendance[]
+  disciplineRecords        DisciplineRecord[]   @relation("EmployeeDiscipline")
+  documents                Document[]
+  benefits                 EmployeeBenefit[]
+  onboardingTasks          EmployeeOnboarding[]
+  requests                 EmployeeRequest[]
+  shifts                   EmployeeShift[]
+  trainings                EmployeeTraining[]
+  department               Department?          @relation(fields: [departmentId], references: [id])
+  positionRel              Position?            @relation(fields: [positionId], references: [id])
+  leaveRequests            LeaveRequest[]
+  offboardingRecord        OffboardingRecord?   @relation("EmployeeOffboarding")
+  payrollItems             PayrollItem[]
+  reviewsReceived          PerformanceReview[]  @relation("Reviewee")
+  reviewsGiven             PerformanceReview[]  @relation("Reviewer")
+  users                    User[]
+  expenses                 Expense[]
 
   @@map("employees")
 }
 
 model LeaveType {
-  id           Int            @id @default(autoincrement())
-  name         String?
-  code         String?
-  maxDays      Int?           @map("max_days")
-  isPaid       Int?           @map("is_paid")
+  id            Int            @id @default(autoincrement())
+  name          String?
+  code          String?
+  maxDays       Int?           @map("max_days")
+  isPaid        Int?           @map("is_paid")
   leaveRequests LeaveRequest[]
 
   @@map("leave_types")
 }
 
 model LeaveRequest {
-  id          Int       @id @default(autoincrement())
-  employeeId  Int?      @map("employee_id")
-  leaveTypeId Int?      @map("leave_type_id")
-  startDate   String?   @map("start_date")
-  endDate     String?   @map("end_date")
+  id          Int        @id @default(autoincrement())
+  employeeId  Int?       @map("employee_id")
+  leaveTypeId Int?       @map("leave_type_id")
+  startDate   String?    @map("start_date")
+  endDate     String?    @map("end_date")
   days        Int?
   reason      String?
-  status      String    @default("PENDING")
-  approverId  Int?      @map("approver_id")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  employee    Employee? @relation(fields: [employeeId], references: [id])
+  status      String     @default("PENDING")
+  approverId  Int?       @map("approver_id")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  employee    Employee?  @relation(fields: [employeeId], references: [id])
   leaveType   LeaveType? @relation(fields: [leaveTypeId], references: [id])
 
   @@map("leave_requests")
@@ -215,20 +191,20 @@ model PayrollRun {
 }
 
 model PayrollItem {
-  id             String      @id @default(uuid())
-  payrollRun     PayrollRun  @relation(fields: [payrollRunId], references: [id])
-  payrollRunId   Int
-  employee       Employee    @relation(fields: [employeeId], references: [id])
-  employeeId     Int
-  basic          Float       @default(0.0)
-  housingAllowance Float     @default(0.0) @map("housing_allowance")
-  transportAllowance Float   @default(0.0) @map("transport_allowance")
-  otherAllowances Float      @default(0.0) @map("other_allowances")
-  deductions     Float       @default(0.0)
-  overtime       Float       @default(0.0)
-  netPay         Float       @default(0.0)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  id                 String     @id @default(uuid())
+  payrollRunId       Int
+  employeeId         Int
+  basic              Float      @default(0.0)
+  housingAllowance   Float      @default(0.0) @map("housing_allowance")
+  transportAllowance Float      @default(0.0) @map("transport_allowance")
+  otherAllowances    Float      @default(0.0) @map("other_allowances")
+  deductions         Float      @default(0.0)
+  overtime           Float      @default(0.0)
+  netPay             Float      @default(0.0)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  employee           Employee   @relation(fields: [employeeId], references: [id])
+  payrollRun         PayrollRun @relation(fields: [payrollRunId], references: [id])
 
   @@map("payroll_items")
 }
@@ -244,15 +220,15 @@ model Announcement {
 }
 
 model Document {
-  id          Int      @id @default(autoincrement())
-  employeeId  Int      @map("employee_id")
-  title       String
-  type        String
-  fileUrl     String   @map("file_url")
-  uploadDate  DateTime @default(now()) @map("upload_date")
-  expiryDate  String?  @map("expiry_date")
-  status      String   @default("Valid")
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id         Int      @id @default(autoincrement())
+  employeeId Int      @map("employee_id")
+  title      String
+  type       String
+  fileUrl    String   @map("file_url")
+  uploadDate DateTime @default(now()) @map("upload_date")
+  expiryDate String?  @map("expiry_date")
+  status     String   @default("Valid")
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("documents")
 }
@@ -272,10 +248,10 @@ model EmployeeRequest {
 }
 
 model Department {
-  id          Int        @id @default(autoincrement())
-  name        String     @unique
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
   description String?
-  headId      Int?       @map("head_id") 
+  headId      Int?         @map("head_id")
   employees   Employee[]
   jobPostings JobPosting[]
 
@@ -286,31 +262,31 @@ model Position {
   id          Int        @id @default(autoincrement())
   title       String     @unique
   description String?
-  level       String?    // e.g. Junior, Senior, Manager
+  level       String?
   employees   Employee[]
 
   @@map("positions")
 }
 
 model Shift {
-  id          Int             @id @default(autoincrement())
-  name        String          @unique
-  startTime   String          @map("start_time") // HH:MM
-  endTime     String          @map("end_time")   // HH:MM
-  workDays    String          // e.g. "Mon,Tue,Wed,Thu,Fri"
-  employees   EmployeeShift[]
+  id        Int             @id @default(autoincrement())
+  name      String          @unique
+  startTime String          @map("start_time")
+  endTime   String          @map("end_time")
+  workDays  String
+  employees EmployeeShift[]
 
   @@map("shifts")
 }
 
 model EmployeeShift {
-  id         Int       @id @default(autoincrement())
-  employeeId Int       @map("employee_id")
-  shiftId    Int       @map("shift_id")
-  startDate  String    @map("start_date")
-  endDate    String?   @map("end_date")
-  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  shift      Shift     @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  id         Int      @id @default(autoincrement())
+  employeeId Int      @map("employee_id")
+  shiftId    Int      @map("shift_id")
+  startDate  String   @map("start_date")
+  endDate    String?  @map("end_date")
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shift      Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
 
   @@map("employee_shifts")
 }
@@ -318,8 +294,8 @@ model EmployeeShift {
 model Benefit {
   id          Int               @id @default(autoincrement())
   name        String            @unique
-  type        String            // "Allowance", "Deduction", "Insurance"
-  amount      Float?            // Fixed amount if applicable
+  type        String
+  amount      Float?
   description String?
   employees   EmployeeBenefit[]
 
@@ -327,98 +303,93 @@ model Benefit {
 }
 
 model EmployeeBenefit {
-  id         Int       @id @default(autoincrement())
-  employeeId Int       @map("employee_id")
-  benefitId  Int       @map("benefit_id")
-  amount     Float?    // Custom override amount
-  startDate  String    @map("start_date")
-  endDate    String?   @map("end_date")
-  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  benefit    Benefit   @relation(fields: [benefitId], references: [id], onDelete: Cascade)
+  id         Int      @id @default(autoincrement())
+  employeeId Int      @map("employee_id")
+  benefitId  Int      @map("benefit_id")
+  amount     Float?
+  startDate  String   @map("start_date")
+  endDate    String?  @map("end_date")
+  benefit    Benefit  @relation(fields: [benefitId], references: [id], onDelete: Cascade)
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("employee_benefits")
 }
 
-// -----------------------------------------------------------------------------
-// PHASE 4: TALENT MANAGEMENT
-// -----------------------------------------------------------------------------
-
 model JobPosting {
-  id          String      @id @default(uuid())
-  title       String
-  department  Department  @relation(fields: [departmentId], references: [id])
+  id           String      @id @default(uuid())
+  title        String
   departmentId Int
-  location    String      @default("Dubai, UAE")
-  type        String      @default("Full-Time") // Full-Time, Part-Time, Contract
-  status      String      @default("Open") // Open, Closed, Draft
-  description String?
+  location     String      @default("Dubai, UAE")
+  type         String      @default("Full-Time")
+  status       String      @default("Open")
+  description  String?
   requirements String?
-  applicants  Applicant[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  applicants   Applicant[]
+  department   Department  @relation(fields: [departmentId], references: [id])
+
   @@map("job_postings")
 }
 
 model Applicant {
-  id           String      @id @default(uuid())
+  id           String     @id @default(uuid())
   firstName    String
   lastName     String
   email        String
   phone        String?
   resumeUrl    String?
-  status       String      @default("New") // New, Interviewing, Offered, Hired, Rejected
-  jobPosting   JobPosting  @relation(fields: [jobPostingId], references: [id])
+  status       String     @default("New")
   jobPostingId String
   notes        String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  jobPosting   JobPosting @relation(fields: [jobPostingId], references: [id])
 
   @@map("applicants")
 }
 
 model OnboardingTask {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  roleTarget  String?  // If null, applies to everyone. Otherwise applies to 'Manager', etc.
-  dayDue      Int      @default(7) // Days after joining this is due
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  id            String               @id @default(uuid())
+  title         String
+  description   String?
+  roleTarget    String?
+  dayDue        Int                  @default(7)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
   employeeTasks EmployeeOnboarding[]
 
   @@map("onboarding_tasks")
 }
 
 model EmployeeOnboarding {
-  id               String          @id @default(uuid())
-  employee         Employee        @relation(fields: [employeeId], references: [id])
-  employeeId       Int
-  task             OnboardingTask  @relation(fields: [taskId], references: [id])
-  taskId           String
-  status           String          @default("Pending") // Pending, Completed
-  completedAt      DateTime?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  id          String         @id @default(uuid())
+  employeeId  Int
+  taskId      String
+  status      String         @default("Pending")
+  completedAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  employee    Employee       @relation(fields: [employeeId], references: [id])
+  task        OnboardingTask @relation(fields: [taskId], references: [id])
 
   @@unique([employeeId, taskId])
   @@map("employee_onboarding")
 }
 
 model PerformanceReview {
-  id             String    @id @default(uuid())
-  reviewee       Employee  @relation("Reviewee", fields: [revieweeId], references: [id])
-  revieweeId     Int
-  reviewer       Employee  @relation("Reviewer", fields: [reviewerId], references: [id])
-  reviewerId     Int
-  period         String    // e.g., "Q1 2026", "Annual 2025"
-  rating         Int       @default(3) // 1-5 scale
-  comments       String?
-  goals          String?
-  status         String    @default("Draft") // Draft, Submitted, Acknowledged
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id         String   @id @default(uuid())
+  revieweeId Int
+  reviewerId Int
+  period     String
+  rating     Int      @default(3)
+  comments   String?
+  goals      String?
+  status     String   @default("Draft")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  reviewee   Employee @relation("Reviewee", fields: [revieweeId], references: [id])
+  reviewer   Employee @relation("Reviewer", fields: [reviewerId], references: [id])
 
   @@map("performance_reviews")
 }
@@ -428,7 +399,7 @@ model TrainingCourse {
   title       String
   description String?
   instructor  String?
-  duration    Int                @default(60) // in minutes
+  duration    Int                @default(60)
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   enrollments EmployeeTraining[]
@@ -437,47 +408,43 @@ model TrainingCourse {
 }
 
 model EmployeeTraining {
-  id               String          @id @default(uuid())
-  employee         Employee        @relation(fields: [employeeId], references: [id])
-  employeeId       Int
-  course           TrainingCourse  @relation(fields: [courseId], references: [id])
-  courseId         String
-  status           String          @default("Enrolled") // Enrolled, In Progress, Completed
-  completionDate   DateTime?
-  score            Int?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  id             String         @id @default(uuid())
+  employeeId     Int
+  courseId       String
+  status         String         @default("Enrolled")
+  completionDate DateTime?
+  score          Int?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  course         TrainingCourse @relation(fields: [courseId], references: [id])
+  employee       Employee       @relation(fields: [employeeId], references: [id])
 
   @@unique([employeeId, courseId])
   @@map("employee_trainings")
 }
 
-// -----------------------------------------------------------------------------
-// PHASE 6: ADMIN & SETTINGS
-// -----------------------------------------------------------------------------
-
 model CompanySetting {
   id          String   @id @default(uuid())
   key         String   @unique
-  value       String   // Can store JSON string or simple text
+  value       String
   description String?
   updatedAt   DateTime @updatedAt
-  
+
   @@map("company_settings")
 }
 
 model Ticket {
-  id          Int      @id @default(autoincrement())
-  subject     String
-  body        String?
-  priority    String   @default("Normal") // Low, Normal, High, Urgent
-  status      String   @default("Open") // Open, In Progress, Resolved, Closed
-  createdById Int      @map("created_by_id")
-  createdBy   User     @relation("TicketCreator", fields: [createdById], references: [id])
-  assignedToId Int?    @map("assigned_to_id")
-  assignedTo  User?    @relation("TicketAssignee", fields: [assignedToId], references: [id])
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id           Int      @id @default(autoincrement())
+  subject      String
+  body         String?
+  priority     String   @default("Normal")
+  status       String   @default("Open")
+  createdById  Int      @map("created_by_id")
+  assignedToId Int?     @map("assigned_to_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  assignedTo   User?    @relation("TicketAssignee", fields: [assignedToId], references: [id])
+  createdBy    User     @relation("TicketCreator", fields: [createdById], references: [id])
 
   @@map("tickets")
 }
@@ -495,27 +462,23 @@ model CompanyPolicy {
 }
 
 model AuditLog {
-  id          Int      @id @default(autoincrement())
-  action      String   // e.g. "UPDATE_SALARY", "DELETE_EMPLOYEE"
-  entity      String   // e.g. "Employee", "Benefit"
-  entityId    String   @map("entity_id") // ID of the affected record
-  userId      Int      @map("user_id") // User who performed the action
-  user        User     @relation(fields: [userId], references: [id])
-  details     String?  // JSON string containing previous/new values
+  id       Int     @id @default(autoincrement())
+  action   String
+  entity   String
+  entityId String  @map("entity_id")
+  userId   Int     @map("user_id")
+  details  String?
+  user     User    @relation(fields: [userId], references: [id])
 
   @@map("audit_logs")
 }
-
-// -----------------------------------------------------------------------------
-// PHASE 13: MODULE POLISH
-// -----------------------------------------------------------------------------
 
 model CompanyHoliday {
   id          Int      @id @default(autoincrement())
   title       String
   date        DateTime
   description String?
-  isRecurring Boolean  @default(false) @map("is_recurring") // E.g., recurs every year on this date
+  isRecurring Boolean  @default(false) @map("is_recurring")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -523,34 +486,34 @@ model CompanyHoliday {
 }
 
 model DisciplineRecord {
-  id          Int      @id @default(autoincrement())
-  employeeId  Int      @map("employee_id")
-  employee    Employee @relation("EmployeeDiscipline", fields: [employeeId], references: [id])
-  type        String   // Warning, PIP, Suspension, Termination
-  reason      String
-  date        DateTime @default(now())
-  issuerId    Int      @map("issuer_id")
-  issuer      User     @relation("DisciplineIssuer", fields: [issuerId], references: [id])
-  status      String   @default("Active") // Active, Resolved, Appealed
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id         Int      @id @default(autoincrement())
+  employeeId Int      @map("employee_id")
+  type       String
+  reason     String
+  date       DateTime @default(now())
+  issuerId   Int      @map("issuer_id")
+  status     String   @default("Active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  employee   Employee @relation("EmployeeDiscipline", fields: [employeeId], references: [id])
+  issuer     User     @relation("DisciplineIssuer", fields: [issuerId], references: [id])
 
   @@map("discipline_records")
 }
 
 model OffboardingRecord {
-  id              Int      @id @default(autoincrement())
-  employeeId      Int      @unique @map("employee_id")
-  employee        Employee @relation("EmployeeOffboarding", fields: [employeeId], references: [id])
-  status          String   @default("Initiated") // Initiated, Clearance, Completed
+  id              Int       @id @default(autoincrement())
+  employeeId      Int       @unique @map("employee_id")
+  status          String    @default("Initiated")
   resignationDate DateTime? @map("resignation_date")
   lastWorkingDay  DateTime? @map("last_working_day")
   isTerminated    Boolean   @default(false) @map("is_terminated")
   reason          String?
-  checklist       String?  // JSON string: [{"item": "Laptop", "status": "Pending"}, ...]
-  settlement      Float?   @default(0.0)
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  checklist       String?
+  settlement      Float?    @default(0.0)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  employee        Employee  @relation("EmployeeOffboarding", fields: [employeeId], references: [id])
 
   @@map("offboarding_records")
 }
@@ -599,4 +562,24 @@ model ApprovalRequest {
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("approval_requests")
+}
+
+// -----------------------------------------------------------------------------
+// PHASE 14: EXPENSE MANAGEMENT
+// -----------------------------------------------------------------------------
+
+model Expense {
+  id           Int      @id @default(autoincrement())
+  employeeId   Int      @map("employee_id")
+  employee     Employee @relation(fields: [employeeId], references: [id])
+  amount       Float
+  category     String   // E.g., Travel, Meals, Supplies
+  date         DateTime
+  description  String?
+  receiptUrl   String?  @map("receipt_url")
+  status       String   @default("Pending") // Pending, Approved, Rejected, Paid
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("expenses")
 }

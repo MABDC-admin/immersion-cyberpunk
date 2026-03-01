@@ -38,6 +38,7 @@ export default function Sidebar() {
                 { name: 'My Payslips', path: '/payslips', icon: '💸' },
                 { name: 'My Requests', path: '/requests', icon: '📄' },
                 { name: 'My Documents', path: '/documents', icon: '📁' },
+                { name: 'My Expenses', path: '/expenses', icon: '💰' },
             ],
         },
         {
@@ -60,7 +61,8 @@ export default function Sidebar() {
                 { name: 'Leave Mgmt', path: '/leave', icon: '🏖️' },
                 { name: 'Payroll', path: '/payroll', icon: '💰' },
                 { name: 'Benefits', path: '/benefits', icon: '🎁' },
-                { name: 'Documents', path: '/coming-soon', icon: '📑' },
+                { name: 'Documents', path: '/documents', icon: '📑' },
+                { name: 'Expense Claims', path: '/expenses', icon: '💸' },
             ],
         },
         {
