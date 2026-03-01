@@ -149,10 +149,8 @@ export default function EmployeesClient({ employees: initialEmployees, departmen
 
             if (!updateRes.ok) throw new Error('Failed to update profile photo');
 
-            router.refresh(); // Refresh to get the new signed URL
-            // Local update for immediate feedback
-            const updatedEmp = await updateRes.json();
-            setEmployees(employees.map(emp => emp.id === employeeId ? { ...emp, avatarUrl: updatedEmp.avatarUrl } : emp));
+            await fetchEmployees(); // Re-fetch to get the signed URL
+            alert('Photo updated successfully! (It may take a second to reflect)');
 
         } catch (error) {
             alert('Photo upload failed: ' + error.message);

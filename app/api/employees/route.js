@@ -36,7 +36,7 @@ export async function GET() {
         }
     });
     const employeesWithAvatars = await Promise.all(employees.map(async (emp) => {
-        if (emp.avatarUrl && emp.avatarUrl.startsWith('avatars/')) {
+        if (emp.avatarUrl && (emp.avatarUrl.startsWith('avatars/') || emp.avatarUrl.startsWith('uploads/'))) {
             try {
                 const signedUrl = await getSignedS3Url(emp.avatarUrl);
                 return { ...emp, avatarUrl: signedUrl, avatarKey: emp.avatarUrl };
