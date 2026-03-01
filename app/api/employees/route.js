@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { getSignedS3Url } from '@/lib/s3';
 
 export async function POST(request) {
     try {
@@ -34,5 +35,18 @@ export async function GET() {
             positionRel: true
         }
     });
-    return NextResponse.json(employees);
+    const employeesWithAvatars = await Promise.all(employees.map(async (emp) => {
+        if (emp.avatarUrl && emp.avatarUrl.startsWith('avatars/')) {
+            try {
+                const signedUrl = await getSignedS3Url(emp.avatarUrl);
+                return { ...emp, avatarUrl: signedUrl, avatarKey: emp.avatarUrl };
+            } catch (err) {
+                console.error('Signed URL error for avatar:', err);
+                return emp;
+            }
+        }
+        return emp;
+    }));
+
+    return NextResponse.json(employeesWithAvatars);
 }

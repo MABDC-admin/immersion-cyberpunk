@@ -34,6 +34,7 @@ export default function EmployeesClient({ employees: initialEmployees, departmen
     });
     const [viewingIndex, setViewingIndex] = useState(null);
     const [activeTab, setActiveTab] = useState('Personal');
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
     const router = useRouter();
 
     const filtered = employees.filter((e) =>
@@ -81,7 +82,7 @@ export default function EmployeesClient({ employees: initialEmployees, departmen
             contractType: emp.contractType || '', workPermitNumber: emp.workPermitNumber || '', sponsorshipType: emp.sponsorshipType || '',
             paymentMethod: emp.paymentMethod || 'Bank Transfer', wpsFileNumber: emp.wpsFileNumber || '', swiftCode: emp.swiftCode || '',
             bankName: emp.bankName || '', iban: emp.iban || '', routingCode: emp.routingCode || '', basicSalary: emp.basicSalary || '',
-            annualLeaveBalance: emp.annualLeaveBalance ?? 30, sickLeaveBalance: emp.sickLeaveBalance ?? 15, 
+            annualLeaveBalance: emp.annualLeaveBalance ?? 30, sickLeaveBalance: emp.sickLeaveBalance ?? 15,
             leaveAccrualRate: emp.leaveAccrualRate ?? 2.5, biometricId: emp.biometricId || '',
             mohreContractNumber: emp.mohreContractNumber || '', establishmentCard: emp.establishmentCard || '', medicalInsurancePolicy: emp.medicalInsurancePolicy || ''
         });
@@ -122,6 +123,44 @@ export default function EmployeesClient({ employees: initialEmployees, departmen
         }
     };
 
+    const handlePhotoUpload = async (e, employeeId) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setUploadingPhoto(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const uploadRes = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const uploadData = await uploadRes.json();
+            if (!uploadRes.ok) throw new Error(uploadData.error);
+
+            // Update employee avatarUrl in DB
+            const updateRes = await fetch(`/api/employees/${employeeId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ avatarUrl: uploadData.key })
+            });
+
+            if (!updateRes.ok) throw new Error('Failed to update profile photo');
+
+            router.refresh(); // Refresh to get the new signed URL
+            // Local update for immediate feedback
+            const updatedEmp = await updateRes.json();
+            setEmployees(employees.map(emp => emp.id === employeeId ? { ...emp, avatarUrl: updatedEmp.avatarUrl } : emp));
+
+        } catch (error) {
+            alert('Photo upload failed: ' + error.message);
+        } finally {
+            setUploadingPhoto(false);
+        }
+    };
+
     const viewingEmployee = viewingIndex !== null ? filtered[viewingIndex] : null;
 
     const handlePrev = () => setViewingIndex((prev) => (prev > 0 ? prev - 1 : filtered.length - 1));
@@ -148,14 +187,34 @@ export default function EmployeesClient({ employees: initialEmployees, departmen
                     {/* Profile Header */}
                     <div style={{ padding: '40px 32px 0', position: 'relative', zIndex: 2 }}>
                         <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                            <div style={{
-                                width: 120, height: 120, borderRadius: '12px',
-                                background: 'linear-gradient(135deg, var(--cyber-teal), var(--cyber-cyan))',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '48px', fontWeight: 800, color: 'var(--cyber-dark)',
-                                boxShadow: '0 0 20px rgba(0, 243, 255, 0.3)', border: '2px solid var(--cyber-cyan)', flexShrink: 0
-                            }}>
-                                {(viewingEmployee.firstName?.[0] || '') + (viewingEmployee.lastName?.[0] || '')}
+                            <div
+                                onClick={() => document.getElementById('avatarInput').click()}
+                                style={{
+                                    width: 120, height: 120, borderRadius: '12px',
+                                    background: viewingEmployee.avatarUrl ? `url(${viewingEmployee.avatarUrl}) center/cover no-repeat` : 'linear-gradient(135deg, var(--cyber-teal), var(--cyber-cyan))',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: '48px', fontWeight: 800, color: 'var(--cyber-dark)',
+                                    boxShadow: '0 0 20px rgba(0, 243, 255, 0.3)', border: '2px solid var(--cyber-cyan)', flexShrink: 0,
+                                    cursor: 'pointer', position: 'relative', overflow: 'hidden'
+                                }}>
+                                {!viewingEmployee.avatarUrl && (viewingEmployee.firstName?.[0] || '') + (viewingEmployee.lastName?.[0] || '')}
+                                <div className="avatar-overlay" style={{
+                                    position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.6)',
+                                    color: '#fff', fontSize: '10px', padding: '4px', textAlign: 'center',
+                                    opacity: uploadingPhoto ? 1 : 0, transition: 'opacity 0.2s'
+                                }}>
+                                    {uploadingPhoto ? 'UPLOADING...' : 'CHANGE PHOTO'}
+                                </div>
+                                <input
+                                    type="file"
+                                    id="avatarInput"
+                                    hidden
+                                    accept="image/*"
+                                    onChange={(e) => handlePhotoUpload(e, viewingEmployee.id)}
+                                />
+                                <style jsx>{`
+                                    div:hover .avatar-overlay { opacity: 1 !important; }
+                                `}</style>
                             </div>
                             <div style={{ flex: 1, minWidth: '200px' }}>
                                 <h1 style={{ fontSize: '36px', fontWeight: 900, color: '#fff', margin: '0 0 8px 0', letterSpacing: '1px' }}>
@@ -236,7 +295,7 @@ export default function EmployeesClient({ employees: initialEmployees, departmen
                         <div style={{ flex: 1, minWidth: '300px', background: 'rgba(6, 20, 16, 0.6)', border: '1px solid rgba(0, 243, 255, 0.2)', borderRadius: '12px', padding: '32px', minHeight: '400px' }}>
                             {activeTab === 'Personal' && (
                                 <div className="animate-fadeInUp" style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
-                                    
+
                                     {/* --- 1. Basic Information --- */}
                                     <section>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -420,11 +479,12 @@ export default function EmployeesClient({ employees: initialEmployees, departmen
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
                                     <div style={{
                                         width: 48, height: 48, borderRadius: 'var(--radius-full)',
-                                        background: 'linear-gradient(135deg, var(--accent), hsl(calc(var(--hue) + 40), var(--sat), 55%))',
+                                        background: emp.avatarUrl ? `url(${emp.avatarUrl}) center/cover no-repeat` : 'linear-gradient(135deg, var(--accent), hsl(calc(var(--hue) + 40), var(--sat), 55%))',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         fontSize: '18px', fontWeight: 700, color: 'white', flexShrink: 0,
+                                        border: emp.avatarUrl ? '1px solid rgba(0, 243, 255, 0.3)' : 'none'
                                     }}>
-                                        {(emp.firstName?.[0] || '') + (emp.lastName?.[0] || '')}
+                                        {!emp.avatarUrl && (emp.firstName?.[0] || '') + (emp.lastName?.[0] || '')}
                                     </div>
                                     <div style={{ flex: 1 }}>
                                         <div style={{ fontWeight: 700, fontSize: '15px' }}>
@@ -510,33 +570,33 @@ export default function EmployeesClient({ employees: initialEmployees, departmen
                             <div style={{ minHeight: '350px' }}>
                                 {modalTab === 'Vitals' && (
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }} className="animate-fadeInUp">
-                                        <div className="form-group"><label className="form-label">Employee No</label><input className="form-input" value={form.empNo} onChange={(e) => setForm({...form, empNo: e.target.value})} /></div>
+                                        <div className="form-group"><label className="form-label">Employee No</label><input className="form-input" value={form.empNo} onChange={(e) => setForm({ ...form, empNo: e.target.value })} /></div>
                                         <div className="form-group"><label className="form-label">Status</label>
-                                            <select className="form-select" value={form.status} onChange={(e) => setForm({...form, status: e.target.value})}>
+                                            <select className="form-select" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
                                                 <option value="Active">Active</option><option value="Inactive">Inactive</option><option value="On Leave">On Leave</option>
                                             </select>
                                         </div>
                                         <div className="form-group"><label className="form-label">Department</label>
-                                            <select className="form-select" value={form.departmentId} onChange={(e) => setForm({...form, departmentId: e.target.value})}>
+                                            <select className="form-select" value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}>
                                                 <option value="">Select Department...</option>{departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                             </select>
                                         </div>
                                         <div className="form-group"><label className="form-label">Position</label>
-                                            <select className="form-select" value={form.positionId} onChange={(e) => setForm({...form, positionId: e.target.value})}>
+                                            <select className="form-select" value={form.positionId} onChange={(e) => setForm({ ...form, positionId: e.target.value })}>
                                                 <option value="">Select Position...</option>{positions.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
                                             </select>
                                         </div>
-                                        <div className="form-group"><label className="form-label">Grade / Level</label><input className="form-input" value={form.gradeLevel} onChange={(e) => setForm({...form, gradeLevel: e.target.value})} /></div>
+                                        <div className="form-group"><label className="form-label">Grade / Level</label><input className="form-input" value={form.gradeLevel} onChange={(e) => setForm({ ...form, gradeLevel: e.target.value })} /></div>
                                         <div className="form-group"><label className="form-label">Employment Type</label>
-                                            <select className="form-select" value={form.employmentType} onChange={(e) => setForm({...form, employmentType: e.target.value})}>
+                                            <select className="form-select" value={form.employmentType} onChange={(e) => setForm({ ...form, employmentType: e.target.value })}>
                                                 <option value="">Select...</option><option value="Full-Time">Full-Time</option><option value="Part-Time">Part-Time</option><option value="Contract">Contract</option>
                                             </select>
                                         </div>
-                                        <div className="form-group"><label className="form-label">Work Location</label><input className="form-input" value={form.workLocation} onChange={(e) => setForm({...form, workLocation: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Joining Date</label><input className="form-input" type="date" value={form.joinDate} onChange={(e) => setForm({...form, joinDate: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Probation Period</label><input className="form-input" value={form.probationPeriod} placeholder="e.g. 6 Months" onChange={(e) => setForm({...form, probationPeriod: e.target.value})} /></div>
+                                        <div className="form-group"><label className="form-label">Work Location</label><input className="form-input" value={form.workLocation} onChange={(e) => setForm({ ...form, workLocation: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Joining Date</label><input className="form-input" type="date" value={form.joinDate} onChange={(e) => setForm({ ...form, joinDate: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Probation Period</label><input className="form-input" value={form.probationPeriod} placeholder="e.g. 6 Months" onChange={(e) => setForm({ ...form, probationPeriod: e.target.value })} /></div>
                                         <div className="form-group"><label className="form-label">Contract Type</label>
-                                            <select className="form-select" value={form.contractType} onChange={(e) => setForm({...form, contractType: e.target.value})}>
+                                            <select className="form-select" value={form.contractType} onChange={(e) => setForm({ ...form, contractType: e.target.value })}>
                                                 <option value="">Select...</option><option value="Unlimited">Unlimited</option><option value="Limited">Limited</option>
                                             </select>
                                         </div>
@@ -545,81 +605,81 @@ export default function EmployeesClient({ employees: initialEmployees, departmen
 
                                 {modalTab === 'Personal' && (
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }} className="animate-fadeInUp">
-                                        <div className="form-group"><label className="form-label">First Name</label><input className="form-input" value={form.firstName} required onChange={(e) => setForm({...form, firstName: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Last Name</label><input className="form-input" value={form.lastName} required onChange={(e) => setForm({...form, lastName: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Nationality</label><input className="form-input" value={form.nationality} onChange={(e) => setForm({...form, nationality: e.target.value})} /></div>
+                                        <div className="form-group"><label className="form-label">First Name</label><input className="form-input" value={form.firstName} required onChange={(e) => setForm({ ...form, firstName: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Last Name</label><input className="form-input" value={form.lastName} required onChange={(e) => setForm({ ...form, lastName: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Nationality</label><input className="form-input" value={form.nationality} onChange={(e) => setForm({ ...form, nationality: e.target.value })} /></div>
                                         <div className="form-group"><label className="form-label">Gender</label>
-                                            <select className="form-select" value={form.gender} onChange={(e) => setForm({...form, gender: e.target.value})}>
+                                            <select className="form-select" value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
                                                 <option value="">Select...</option><option value="Male">Male</option><option value="Female">Female</option>
                                             </select>
                                         </div>
-                                        <div className="form-group"><label className="form-label">Date of Birth</label><input className="form-input" type="date" value={form.dateOfBirth} onChange={(e) => setForm({...form, dateOfBirth: e.target.value})} /></div>
+                                        <div className="form-group"><label className="form-label">Date of Birth</label><input className="form-input" type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} /></div>
                                         <div className="form-group"><label className="form-label">Marital Status</label>
-                                            <select className="form-select" value={form.maritalStatus} onChange={(e) => setForm({...form, maritalStatus: e.target.value})}>
+                                            <select className="form-select" value={form.maritalStatus} onChange={(e) => setForm({ ...form, maritalStatus: e.target.value })}>
                                                 <option value="">Select...</option><option value="Single">Single</option><option value="Married">Married</option>
                                             </select>
                                         </div>
-                                        <div className="form-group" style={{ gridColumn: '1 / -1' }}><hr style={{ borderColor: 'rgba(0, 243, 255, 0.1)', margin: '4px 0' }}/></div>
-                                        <div className="form-group"><label className="form-label">Company Email</label><input className="form-input" type="email" value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Personal Email</label><input className="form-input" type="email" value={form.personalEmail} onChange={(e) => setForm({...form, personalEmail: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Mobile Number (UAE)</label><input className="form-input" value={form.phone} onChange={(e) => setForm({...form, phone: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Emergency Contact Name</label><input className="form-input" value={form.emergencyContactName} onChange={(e) => setForm({...form, emergencyContactName: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Emergency Contact Relation</label><input className="form-input" value={form.emergencyContactRelation} onChange={(e) => setForm({...form, emergencyContactRelation: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Emergency Contact Number</label><input className="form-input" value={form.emergencyContactNumber} onChange={(e) => setForm({...form, emergencyContactNumber: e.target.value})} /></div>
-                                        <div className="form-group" style={{ gridColumn: '1 / -1' }}><label className="form-label">Residential Address (UAE)</label><input className="form-input" value={form.residentialAddress} onChange={(e) => setForm({...form, residentialAddress: e.target.value})} /></div>
-                                        <div className="form-group" style={{ gridColumn: '1 / -1' }}><label className="form-label">Home Country Address</label><input className="form-input" value={form.homeCountryAddress} onChange={(e) => setForm({...form, homeCountryAddress: e.target.value})} /></div>
+                                        <div className="form-group" style={{ gridColumn: '1 / -1' }}><hr style={{ borderColor: 'rgba(0, 243, 255, 0.1)', margin: '4px 0' }} /></div>
+                                        <div className="form-group"><label className="form-label">Company Email</label><input className="form-input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Personal Email</label><input className="form-input" type="email" value={form.personalEmail} onChange={(e) => setForm({ ...form, personalEmail: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Mobile Number (UAE)</label><input className="form-input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Emergency Contact Name</label><input className="form-input" value={form.emergencyContactName} onChange={(e) => setForm({ ...form, emergencyContactName: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Emergency Contact Relation</label><input className="form-input" value={form.emergencyContactRelation} onChange={(e) => setForm({ ...form, emergencyContactRelation: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Emergency Contact Number</label><input className="form-input" value={form.emergencyContactNumber} onChange={(e) => setForm({ ...form, emergencyContactNumber: e.target.value })} /></div>
+                                        <div className="form-group" style={{ gridColumn: '1 / -1' }}><label className="form-label">Residential Address (UAE)</label><input className="form-input" value={form.residentialAddress} onChange={(e) => setForm({ ...form, residentialAddress: e.target.value })} /></div>
+                                        <div className="form-group" style={{ gridColumn: '1 / -1' }}><label className="form-label">Home Country Address</label><input className="form-input" value={form.homeCountryAddress} onChange={(e) => setForm({ ...form, homeCountryAddress: e.target.value })} /></div>
                                     </div>
                                 )}
 
                                 {modalTab === 'Compliance' && (
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }} className="animate-fadeInUp">
-                                        <div className="form-group"><label className="form-label">Emirates ID</label><input className="form-input" value={form.emiratesId} placeholder="784-XXXX-XXXXXXX-X" onChange={(e) => setForm({...form, emiratesId: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Emirates ID Expiry</label><input className="form-input" type="date" value={form.emiratesIdExpiry} onChange={(e) => setForm({...form, emiratesIdExpiry: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Passport Number</label><input className="form-input" value={form.passportNumber} onChange={(e) => setForm({...form, passportNumber: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Passport Expiry</label><input className="form-input" type="date" value={form.passportExpiry} onChange={(e) => setForm({...form, passportExpiry: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Visa Type</label><input className="form-input" value={form.visaType} placeholder="e.g. Employment" onChange={(e) => setForm({...form, visaType: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Visa Expiry</label><input className="form-input" type="date" value={form.visaExpiry} onChange={(e) => setForm({...form, visaExpiry: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Unified Number (UID)</label><input className="form-input" value={form.unifiedNumber} onChange={(e) => setForm({...form, unifiedNumber: e.target.value})} /></div>
+                                        <div className="form-group"><label className="form-label">Emirates ID</label><input className="form-input" value={form.emiratesId} placeholder="784-XXXX-XXXXXXX-X" onChange={(e) => setForm({ ...form, emiratesId: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Emirates ID Expiry</label><input className="form-input" type="date" value={form.emiratesIdExpiry} onChange={(e) => setForm({ ...form, emiratesIdExpiry: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Passport Number</label><input className="form-input" value={form.passportNumber} onChange={(e) => setForm({ ...form, passportNumber: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Passport Expiry</label><input className="form-input" type="date" value={form.passportExpiry} onChange={(e) => setForm({ ...form, passportExpiry: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Visa Type</label><input className="form-input" value={form.visaType} placeholder="e.g. Employment" onChange={(e) => setForm({ ...form, visaType: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Visa Expiry</label><input className="form-input" type="date" value={form.visaExpiry} onChange={(e) => setForm({ ...form, visaExpiry: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Unified Number (UID)</label><input className="form-input" value={form.unifiedNumber} onChange={(e) => setForm({ ...form, unifiedNumber: e.target.value })} /></div>
                                         <div className="form-group"><label className="form-label">Sponsorship Type</label>
-                                            <select className="form-select" value={form.sponsorshipType} onChange={(e) => setForm({...form, sponsorshipType: e.target.value})}>
+                                            <select className="form-select" value={form.sponsorshipType} onChange={(e) => setForm({ ...form, sponsorshipType: e.target.value })}>
                                                 <option value="">Select...</option><option value="Company Sponsored">Company Sponsored</option><option value="Family Sponsored">Family Sponsored</option>
                                             </select>
                                         </div>
-                                        <div className="form-group" style={{ gridColumn: '1 / -1' }}><hr style={{ borderColor: 'rgba(0, 243, 255, 0.1)', margin: '4px 0' }}/></div>
-                                        <div className="form-group"><label className="form-label">MOHRE Contract #</label><input className="form-input" value={form.mohreContractNumber} onChange={(e) => setForm({...form, mohreContractNumber: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Work Permit #</label><input className="form-input" value={form.workPermitNumber} onChange={(e) => setForm({...form, workPermitNumber: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Establishment Card</label><input className="form-input" value={form.establishmentCard} onChange={(e) => setForm({...form, establishmentCard: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Insurance Policy #</label><input className="form-input" value={form.medicalInsurancePolicy} onChange={(e) => setForm({...form, medicalInsurancePolicy: e.target.value})} /></div>
+                                        <div className="form-group" style={{ gridColumn: '1 / -1' }}><hr style={{ borderColor: 'rgba(0, 243, 255, 0.1)', margin: '4px 0' }} /></div>
+                                        <div className="form-group"><label className="form-label">MOHRE Contract #</label><input className="form-input" value={form.mohreContractNumber} onChange={(e) => setForm({ ...form, mohreContractNumber: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Work Permit #</label><input className="form-input" value={form.workPermitNumber} onChange={(e) => setForm({ ...form, workPermitNumber: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Establishment Card</label><input className="form-input" value={form.establishmentCard} onChange={(e) => setForm({ ...form, establishmentCard: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Insurance Policy #</label><input className="form-input" value={form.medicalInsurancePolicy} onChange={(e) => setForm({ ...form, medicalInsurancePolicy: e.target.value })} /></div>
                                     </div>
                                 )}
 
                                 {modalTab === 'Bank' && (
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }} className="animate-fadeInUp">
-                                        <div className="form-group"><label className="form-label">Basic Salary (AED)</label><input className="form-input" type="number" step="0.01" value={form.basicSalary} onChange={(e) => setForm({...form, basicSalary: e.target.value})} /></div>
+                                        <div className="form-group"><label className="form-label">Basic Salary (AED)</label><input className="form-input" type="number" step="0.01" value={form.basicSalary} onChange={(e) => setForm({ ...form, basicSalary: e.target.value })} /></div>
                                         <div className="form-group"><label className="form-label">Payment Method</label>
-                                            <select className="form-select" value={form.paymentMethod} onChange={(e) => setForm({...form, paymentMethod: e.target.value})}>
+                                            <select className="form-select" value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
                                                 <option value="Bank Transfer">Bank Transfer</option><option value="WPS">WPS</option>
                                             </select>
                                         </div>
-                                        <div className="form-group"><label className="form-label">WPS Salary File #</label><input className="form-input" value={form.wpsFileNumber} onChange={(e) => setForm({...form, wpsFileNumber: e.target.value})} /></div>
-                                        <div className="form-group" style={{ gridColumn: '1 / -1' }}><hr style={{ borderColor: 'rgba(0, 243, 255, 0.1)', margin: '4px 0' }}/></div>
+                                        <div className="form-group"><label className="form-label">WPS Salary File #</label><input className="form-input" value={form.wpsFileNumber} onChange={(e) => setForm({ ...form, wpsFileNumber: e.target.value })} /></div>
+                                        <div className="form-group" style={{ gridColumn: '1 / -1' }}><hr style={{ borderColor: 'rgba(0, 243, 255, 0.1)', margin: '4px 0' }} /></div>
                                         <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                                             <div style={{ padding: '12px', background: 'rgba(0, 243, 255, 0.05)', borderRadius: '8px', border: '1px solid rgba(0, 243, 255, 0.2)', marginBottom: '8px' }}>
                                                 <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>ℹ️ Note: Core Allowances and Deductions (Housing, Transport, etc) are assigned via the central <strong>Benefits</strong> module.</p>
                                             </div>
                                         </div>
-                                        <div className="form-group" style={{ gridColumn: '1 / -1' }}><label className="form-label">Bank Name</label><input className="form-input" value={form.bankName} placeholder="e.g. Emirates NBD" onChange={(e) => setForm({...form, bankName: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">IBAN</label><input className="form-input" placeholder="AE..." value={form.iban} onChange={(e) => setForm({...form, iban: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Routing / SWIFT Code</label><input className="form-input" value={form.swiftCode} onChange={(e) => setForm({...form, swiftCode: e.target.value})} /></div>
+                                        <div className="form-group" style={{ gridColumn: '1 / -1' }}><label className="form-label">Bank Name</label><input className="form-input" value={form.bankName} placeholder="e.g. Emirates NBD" onChange={(e) => setForm({ ...form, bankName: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">IBAN</label><input className="form-input" placeholder="AE..." value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Routing / SWIFT Code</label><input className="form-input" value={form.swiftCode} onChange={(e) => setForm({ ...form, swiftCode: e.target.value })} /></div>
                                     </div>
                                 )}
 
                                 {modalTab === 'Leave' && (
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }} className="animate-fadeInUp">
-                                        <div className="form-group"><label className="form-label">Annual Leave Balance (Days)</label><input className="form-input" type="number" step="0.5" value={form.annualLeaveBalance} onChange={(e) => setForm({...form, annualLeaveBalance: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Sick Leave Balance (Days)</label><input className="form-input" type="number" step="0.5" value={form.sickLeaveBalance} onChange={(e) => setForm({...form, sickLeaveBalance: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Leave Accrual Rate (Days/Mo)</label><input className="form-input" type="number" step="0.1" value={form.leaveAccrualRate} onChange={(e) => setForm({...form, leaveAccrualRate: e.target.value})} /></div>
-                                        <div className="form-group"><label className="form-label">Biometric Machine ID</label><input className="form-input" value={form.biometricId} onChange={(e) => setForm({...form, biometricId: e.target.value})} /></div>
+                                        <div className="form-group"><label className="form-label">Annual Leave Balance (Days)</label><input className="form-input" type="number" step="0.5" value={form.annualLeaveBalance} onChange={(e) => setForm({ ...form, annualLeaveBalance: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Sick Leave Balance (Days)</label><input className="form-input" type="number" step="0.5" value={form.sickLeaveBalance} onChange={(e) => setForm({ ...form, sickLeaveBalance: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Leave Accrual Rate (Days/Mo)</label><input className="form-input" type="number" step="0.1" value={form.leaveAccrualRate} onChange={(e) => setForm({ ...form, leaveAccrualRate: e.target.value })} /></div>
+                                        <div className="form-group"><label className="form-label">Biometric Machine ID</label><input className="form-input" value={form.biometricId} onChange={(e) => setForm({ ...form, biometricId: e.target.value })} /></div>
                                         <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                                             <div style={{ padding: '12px', background: 'rgba(0, 243, 255, 0.05)', borderRadius: '8px', border: '1px solid rgba(0, 243, 255, 0.2)', marginTop: '8px' }}>
                                                 <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>ℹ️ Note: Shifts and working hours are managed centrally through the <strong>Shifts & Schedules</strong> module and assigned automatically.</p>

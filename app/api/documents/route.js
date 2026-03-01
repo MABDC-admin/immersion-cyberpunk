@@ -2,14 +2,14 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
+import { uploadToS3, getSignedS3Url, deleteFromS3 } from '@/lib/s3';
+import { v4 as uuidv4 } from 'uuid';
 
 export async function GET(request) {
     try {
         const session = await getServerSession(authOptions);
         if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        
+
         const { searchParams } = new URL(request.url);
         const employeeIdParam = searchParams.get('employeeId');
 
@@ -35,7 +35,21 @@ export async function GET(request) {
             orderBy: { uploadDate: 'desc' }
         });
 
-        return NextResponse.json(documents);
+        // Generate signed URLs for documents
+        const documentsWithSignedUrls = await Promise.all(documents.map(async (doc) => {
+            if (doc.fileUrl && doc.fileUrl.startsWith('documents/')) {
+                try {
+                    const signedUrl = await getSignedS3Url(doc.fileUrl);
+                    return { ...doc, fileUrl: signedUrl, fileKey: doc.fileUrl };
+                } catch (err) {
+                    console.error('Signed URL error for doc:', err);
+                    return doc;
+                }
+            }
+            return doc;
+        }));
+
+        return NextResponse.json(documentsWithSignedUrls);
     } catch (error) {
         console.error('Fetch documents error:', error);
         return NextResponse.json({ error: 'Failed to fetch documents' }, { status: 500 });
@@ -46,7 +60,7 @@ export async function POST(request) {
     try {
         const session = await getServerSession(authOptions);
         if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        
+
         const formData = await request.formData();
         const file = formData.get('file');
         const title = formData.get('title');
@@ -55,7 +69,7 @@ export async function POST(request) {
         const employeeIdParam = formData.get('employeeId');
 
         let targetEmployeeId = session.user.employeeId;
-        
+
         if (session.user.role === 'Super Admin' || session.user.role === 'HR Admin') {
             if (employeeIdParam) {
                 targetEmployeeId = parseInt(employeeIdParam);
@@ -66,24 +80,17 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Target employee ID required' }, { status: 400 });
         }
 
-        let fileUrl = '#'; // Default if no file
+        let fileUrl = '#';
 
         if (file && file.size > 0 && typeof file.arrayBuffer === 'function') {
             const buffer = Buffer.from(await file.arrayBuffer());
-            const fileExtension = path.extname(file.name) || '';
-            const fileName = `doc_${targetEmployeeId}_${Date.now()}${fileExtension}`;
-            const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'documents');
-            
-            // Ensure directory exists
-            try {
-                await fs.access(uploadDir);
-            } catch {
-                await fs.mkdir(uploadDir, { recursive: true });
-            }
+            const fileExtension = file.name.split('.').pop();
+            const key = `documents/${uuidv4()}.${fileExtension}`;
+            const contentType = file.type || 'application/octet-stream';
 
-            const filePath = path.join(uploadDir, fileName);
-            await fs.writeFile(filePath, buffer);
-            fileUrl = `/uploads/documents/${fileName}`;
+            console.log(`📤 Uploading document ${file.name} to S3 as ${key}`);
+            await uploadToS3(buffer, key, contentType);
+            fileUrl = key; // Store the key in the DB
         }
 
         const newDoc = await prisma.document.create({
