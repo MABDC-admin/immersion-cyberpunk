@@ -201,7 +201,7 @@ export default function EmployeesClient({ employees: initialEmployees, departmen
                                 onClick={() => document.getElementById('avatarInput').click()}
                                 style={{
                                     width: 120, height: 120, borderRadius: '12px',
-                                    background: viewingEmployee.avatarUrl ? `url(${viewingEmployee.avatarUrl}) center/cover no-repeat` : 'linear-gradient(135deg, var(--cyber-teal), var(--cyber-cyan))',
+                                    background: viewingEmployee.avatarUrl ? `url("${viewingEmployee.avatarUrl}") center/cover no-repeat` : 'linear-gradient(135deg, var(--cyber-teal), var(--cyber-cyan))',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     fontSize: '48px', fontWeight: 800, color: 'var(--cyber-dark)',
                                     boxShadow: '0 0 20px rgba(0, 243, 255, 0.3)', border: '2px solid var(--cyber-cyan)', flexShrink: 0,
@@ -489,7 +489,7 @@ export default function EmployeesClient({ employees: initialEmployees, departmen
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
                                     <div style={{
                                         width: 48, height: 48, borderRadius: 'var(--radius-full)',
-                                        background: emp.avatarUrl ? `url(${emp.avatarUrl}) center/cover no-repeat` : 'linear-gradient(135deg, var(--accent), hsl(calc(var(--hue) + 40), var(--sat), 55%))',
+                                        background: emp.avatarUrl ? `url("${emp.avatarUrl}") center/cover no-repeat` : 'linear-gradient(135deg, var(--accent), hsl(calc(var(--hue) + 40), var(--sat), 55%))',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         fontSize: '18px', fontWeight: 700, color: 'white', flexShrink: 0,
                                         border: emp.avatarUrl ? '1px solid rgba(0, 243, 255, 0.3)' : 'none'
