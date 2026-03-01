@@ -21,6 +21,7 @@ model User {
   assignedTickets Ticket[]  @relation("TicketAssignee")
   auditLogs      AuditLog[]
   issuedDiscipline DisciplineRecord[] @relation("DisciplineIssuer")
+  approvalRequests ApprovalRequest[] @relation("ApprovalRequester")
 
   @@map("users")
 }
@@ -552,4 +553,50 @@ model OffboardingRecord {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@map("offboarding_records")
+}
+
+// -----------------------------------------------------------------------------
+// PHASE 13: APPROVAL WORKFLOWS
+// -----------------------------------------------------------------------------
+
+model ApprovalWorkflow {
+  id          Int      @id @default(autoincrement())
+  name        String
+  entityType  String   @map("entity_type") // e.g., "LeaveRequest", "Expense", "General"
+  isActive    Boolean  @default(true) @map("is_active")
+  steps       ApprovalStep[]
+  requests    ApprovalRequest[]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("approval_workflows")
+}
+
+model ApprovalStep {
+  id             Int      @id @default(autoincrement())
+  workflowId     Int      @map("workflow_id")
+  workflow       ApprovalWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  stepOrder      Int      @map("step_order") // 1, 2, 3
+  approverRole   String?  @map("approver_role") // E.g., "Manager", "HR Admin"
+  specificUserId Int?     @map("specific_user_id") // E.g., CEO
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("approval_steps")
+}
+
+model ApprovalRequest {
+  id               Int      @id @default(autoincrement())
+  workflowId       Int      @map("workflow_id")
+  workflow         ApprovalWorkflow @relation(fields: [workflowId], references: [id])
+  requesterId      Int      @map("requester_id")
+  requester        User     @relation("ApprovalRequester", fields: [requesterId], references: [id])
+  targetEntityId   Int?     @map("target_entity_id")
+  currentStepOrder Int      @default(1) @map("current_step_order")
+  status           String   @default("Pending") // Pending, Approved, Rejected
+  comments         String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("approval_requests")
 }
