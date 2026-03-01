@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { NextResponse } from 'next/server';
+import { getSignedS3Url } from '@/lib/s3';
 
 export async function GET(request) {
     try {
@@ -12,13 +13,13 @@ export async function GET(request) {
 
         const { searchParams } = new URL(request.url);
         const employeeId = searchParams.get('employeeId');
-        
+
         const roles = session.user.roles || [];
         const isHR = roles.includes('HR Admin') || roles.includes('Super Admin');
         const userEmployeeId = session.user.employeeId;
 
         let query = {};
-        
+
         if (isHR && employeeId) {
             query.employeeId = parseInt(employeeId);
         } else if (!isHR) {
@@ -39,7 +40,21 @@ export async function GET(request) {
             orderBy: { date: 'desc' }
         });
 
-        return NextResponse.json(expenses);
+        // Generate signed URLs for receipts
+        const expensesWithSignedUrls = await Promise.all(expenses.map(async (expense) => {
+            if (expense.receiptUrl && expense.receiptUrl.startsWith('uploads/')) {
+                try {
+                    const signedUrl = await getSignedS3Url(expense.receiptUrl);
+                    return { ...expense, receiptUrl: signedUrl, receiptKey: expense.receiptUrl };
+                } catch (err) {
+                    console.error('Signed URL error:', err);
+                    return expense;
+                }
+            }
+            return expense;
+        }));
+
+        return NextResponse.json(expensesWithSignedUrls);
     } catch (error) {
         console.error('Fetch expenses error:', error);
         return NextResponse.json({ error: 'Failed to fetch expenses' }, { status: 500 });

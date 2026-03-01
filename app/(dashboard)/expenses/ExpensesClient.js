@@ -10,6 +10,8 @@ export default function ExpensesClient({ initialMyExpenses, initialAllExpenses, 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [message, setMessage] = useState({ text: '', type: '' });
+    const [uploading, setUploading] = useState(false);
+    const [receiptKey, setReceiptKey] = useState('');
 
     const [newExpense, setNewExpense] = useState({
         amount: '',
@@ -21,8 +23,43 @@ export default function ExpensesClient({ initialMyExpenses, initialAllExpenses, 
 
     const router = useRouter();
 
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setUploading(true);
+        setMessage({ text: '', type: '' });
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+            setReceiptKey(data.key);
+            setNewExpense({ ...newExpense, receiptUrl: data.key }); // We store the key in the database
+            setMessage({ text: 'File uploaded successfully!', type: 'success' });
+        } catch (error) {
+            setMessage({ text: 'Upload failed: ' + error.message, type: 'error' });
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const handleSubmitExpense = async (e) => {
         e.preventDefault();
+
+        if (!receiptKey) {
+            setMessage({ text: 'Please upload a receipt first.', type: 'error' });
+            return;
+        }
+
         setIsSubmitting(true);
         setMessage({ text: '', type: '' });
 
@@ -30,14 +67,24 @@ export default function ExpensesClient({ initialMyExpenses, initialAllExpenses, 
             const res = await fetch('/api/expenses', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newExpense)
+                body: JSON.stringify({
+                    ...newExpense,
+                    receiptUrl: receiptKey // Send the S3 key
+                })
             });
 
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to submit expense');
 
             setMessage({ text: 'Expense submitted successfully!', type: 'success' });
-            setMyExpenses([data, ...myExpenses]);
+
+            // Refresh local state
+            const resUpdated = await fetch('/api/expenses');
+            if (resUpdated.ok) {
+                const refreshedData = await resUpdated.json();
+                setMyExpenses(refreshedData);
+            }
+
             setShowModal(false);
             setNewExpense({
                 amount: '',
@@ -46,6 +93,7 @@ export default function ExpensesClient({ initialMyExpenses, initialAllExpenses, 
                 description: '',
                 receiptUrl: ''
             });
+            setReceiptKey('');
             router.refresh();
         } catch (error) {
             setMessage({ text: error.message, type: 'error' });
@@ -184,7 +232,18 @@ export default function ExpensesClient({ initialMyExpenses, initialAllExpenses, 
                                     </td>
                                     <td><StatusBadge status={expense.status} /></td>
                                     <td>
-                                        <button className="btn btn-ghost btn-sm">VIEW RECEIPT</button>
+                                        {expense.receiptUrl ? (
+                                            <a
+                                                href={expense.receiptUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="btn btn-ghost btn-sm"
+                                            >
+                                                VIEW RECEIPT
+                                            </a>
+                                        ) : (
+                                            <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>NO RECEIPT</span>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
@@ -204,21 +263,21 @@ export default function ExpensesClient({ initialMyExpenses, initialAllExpenses, 
                             <div className="form-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
                                 <div className="form-group">
                                     <label className="form-label">Amount (AED)</label>
-                                    <input 
-                                        type="number" 
-                                        step="0.01" 
-                                        className="form-input" 
-                                        required 
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        className="form-input"
+                                        required
                                         value={newExpense.amount}
-                                        onChange={e => setNewExpense({...newExpense, amount: e.target.value})}
+                                        onChange={e => setNewExpense({ ...newExpense, amount: e.target.value })}
                                     />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Category</label>
-                                    <select 
-                                        className="form-input" 
+                                    <select
+                                        className="form-input"
                                         value={newExpense.category}
-                                        onChange={e => setNewExpense({...newExpense, category: e.target.value})}
+                                        onChange={e => setNewExpense({ ...newExpense, category: e.target.value })}
                                     >
                                         <option>Travel</option>
                                         <option>Meals</option>
@@ -230,32 +289,48 @@ export default function ExpensesClient({ initialMyExpenses, initialAllExpenses, 
                                 </div>
                                 <div className="form-group" style={{ gridColumn: 'span 2' }}>
                                     <label className="form-label">Date of Expenditure</label>
-                                    <input 
-                                        type="date" 
-                                        className="form-input" 
-                                        required 
+                                    <input
+                                        type="date"
+                                        className="form-input"
+                                        required
                                         value={newExpense.date}
-                                        onChange={e => setNewExpense({...newExpense, date: e.target.value})}
+                                        onChange={e => setNewExpense({ ...newExpense, date: e.target.value })}
                                     />
                                 </div>
                                 <div className="form-group" style={{ gridColumn: 'span 2' }}>
                                     <label className="form-label">Description / Purpose</label>
-                                    <textarea 
-                                        className="form-input" 
-                                        rows="3" 
+                                    <textarea
+                                        className="form-input"
+                                        rows="3"
                                         value={newExpense.description}
-                                        onChange={e => setNewExpense({...newExpense, description: e.target.value})}
+                                        onChange={e => setNewExpense({ ...newExpense, description: e.target.value })}
                                     ></textarea>
                                 </div>
                                 <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                                    <label className="form-label">Receipt Image URL</label>
-                                    <input 
-                                        type="url" 
-                                        className="form-input" 
-                                        placeholder="https://imgur.com/..." 
-                                        value={newExpense.receiptUrl}
-                                        onChange={e => setNewExpense({...newExpense, receiptUrl: e.target.value})}
-                                    />
+                                    <label className="form-label">Receipt Proof (JPG, PNG, PDF)</label>
+                                    <div style={{
+                                        border: '2px dashed rgba(0, 243, 255, 0.2)',
+                                        borderRadius: '8px',
+                                        padding: '20px',
+                                        textAlign: 'center',
+                                        background: 'rgba(0, 243, 255, 0.02)'
+                                    }}>
+                                        <input
+                                            type="file"
+                                            id="receiptInput"
+                                            className="form-input"
+                                            style={{ display: 'none' }}
+                                            onChange={handleFileUpload}
+                                            accept="image/*,application/pdf"
+                                        />
+                                        <label htmlFor="receiptInput" style={{ cursor: 'pointer' }}>
+                                            <div style={{ fontSize: '24px', marginBottom: '8px' }}>{uploading ? '⏳' : '📎'}</div>
+                                            <div style={{ color: 'var(--cyber-cyan)', fontWeight: 'bold' }}>
+                                                {uploading ? 'UPLOADING...' : receiptKey ? 'RECEIPT ATTACHED' : 'CLICK TO UPLOAD RECEIPT'}
+                                            </div>
+                                            {receiptKey && <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>{receiptKey}</div>}
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                             <div className="modal-actions" style={{ marginTop: '32px' }}>
