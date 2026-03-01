@@ -30,5 +30,5 @@ export default async function PayrollPage() {
         ]
     });
 
-    return <PayrollClient initialRuns={payrollRuns} />;
+    return <PayrollClient initialRuns={JSON.parse(JSON.stringify(payrollRuns))} />;
 }

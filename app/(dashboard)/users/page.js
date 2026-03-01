@@ -45,5 +45,11 @@ export default async function UsersPage() {
         select: { id: true, firstName: true, lastName: true }
     });
 
-    return <UsersClient initialUsers={initialUsers} rolesList={rolesList} unlinkedEmployees={unlinkedEmployees} />;
+    return (
+        <UsersClient
+            initialUsers={JSON.parse(JSON.stringify(initialUsers))}
+            rolesList={JSON.parse(JSON.stringify(rolesList))}
+            unlinkedEmployees={JSON.parse(JSON.stringify(unlinkedEmployees))}
+        />
+    );
 }

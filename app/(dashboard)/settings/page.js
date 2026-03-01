@@ -31,5 +31,10 @@ export default async function SettingsPage() {
         orderBy: { id: 'asc' }
     });
 
-    return <SettingsClient initialSettings={settings} roles={allRoles} />;
+    return (
+        <SettingsClient
+            initialSettings={JSON.parse(JSON.stringify(settings))}
+            roles={JSON.parse(JSON.stringify(allRoles))}
+        />
+    );
 }

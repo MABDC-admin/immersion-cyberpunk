@@ -21,5 +21,5 @@ export default async function OffboardingPage() {
         orderBy: { firstName: 'asc' }
     });
 
-    return <OffboardingClient employees={employees} currentUser={session.user} />;
+    return <OffboardingClient employees={JSON.parse(JSON.stringify(employees))} currentUser={session.user} />;
 }

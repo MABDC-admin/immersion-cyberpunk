@@ -16,7 +16,7 @@ export default async function DisciplinePage() {
     }
 
     const isAdmin = session.user.roles.some(r => ['Super Admin', 'HR Admin'].includes(r));
-    
+
     // Fetch departments for filtering if needed, and employees for the dropdown
     let employees = [];
     if (isAdmin) {
@@ -26,5 +26,5 @@ export default async function DisciplinePage() {
         });
     }
 
-    return <DisciplineClient employees={employees} isAdmin={isAdmin} currentUser={session.user} />;
+    return <DisciplineClient employees={JSON.parse(JSON.stringify(employees))} isAdmin={isAdmin} currentUser={session.user} />;
 }
